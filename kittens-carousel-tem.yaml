@@ -1,0 +1,62 @@
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  
+Parameters:
+  KeyPairParameter:
+    Description: Select ur Keypair
+    Type: AWS::EC2::KeyPair::KeyName
+
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
+
+  
+
+Resources:
+  WebServer:
+    Type: AWS::EC2::Instance
+    Properties:
+     ImageId: !Ref LatestAmiId
+     InstanceType: t2.micro
+     KeyName: !Ref KeyPairParameter
+     SecurityGroups:
+       - !Ref WebserverSG
+     Tags: 
+       - Key: Name
+         Value: !Sub Web Server of ${AWS::StackName}
+     UserData: !Base64 |
+        #! /bin/bash
+        dnf update -y
+        dnf install httpd -y
+        FOLDER="https://raw.githubusercontent.com/Aminos69/kittens-carousel-static-website-ec2/main/static-web"
+        cd /var/www/html
+        wget ${FOLDER}/index.html
+        wget ${FOLDER}/cat0.jpg
+        wget ${FOLDER}/cat1.jpg
+        wget ${FOLDER}/cat2.jpg
+        systemctl start httpd
+        systemctl enable httpd
+  
+
+  WebserverSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and HTTP # Required
+      GroupName: "String"
+      SecurityGroupIngress: 
+        - CidrIp: 0.0.0.0/0
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+        - CidrIp: 0.0.0.0/0
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+  
+Outputs:
+  DNSNameofWebServer:
+    Description: DNS Name of My Web Server Instance.
+    Value: !Sub
+      - http://${PublicDNS}
+      - PublicDNS: !GetAtt WebServer.PublicDnsName
